@@ -49,8 +49,8 @@ def main():
         raise Exception(f'Unrecognized loss function: {loss}')
 
     # start and end of index (both inclusive)
-    start_index = 0
-    end_index = 1
+    start_index = 41
+    end_index = 41
     final_size = img_height
     visualize = True
 
@@ -61,7 +61,17 @@ def main():
     for k in range(start_index, end_index+1):
         first_image = np.asarray(Image.open(img1_name_list[k])).reshape(img_height, img_width) * 1.0/255.0
         second_image = np.asarray(Image.open(img2_name_list[k])).reshape(img_height, img_width) * 1.0/255.0
-        cur_label_true = fz.read_flow(gt_name_list[k])
+        cur_label_true = fz.read_flow(gt_name_list[k]) / 256.0
+        # histogram of vector magnitude
+        # u = cur_label_true[:, :, 0] / 256.0
+        # v = cur_label_true[:, :, 1] / 256.0
+        # magnitude = np.sqrt(np.square(u) + np.square(v)).reshape(256*256, 1)
+        # binwidth = 0.1
+        # plt.hist(magnitude,
+        #         density=False,
+        #         bins=np.arange(min(magnitude), max(magnitude) + binwidth, binwidth))
+        # plt.show()
+        # return
 
         u, v = HornSchunck.HS(first_image, second_image, 1, 100)
         cur_label_pred = np.zeros((img_height, img_width, 2))
@@ -71,10 +81,6 @@ def main():
         cur_loss = loss_module(torch.from_numpy(cur_label_pred), torch.from_numpy(cur_label_true))
         if loss == 'RMSE':
             cur_loss = torch.sqrt(cur_loss)
-            # convert to per pixel
-
-        # scale to per pixel
-        cur_loss = cur_loss / final_size
 
         if cur_loss < min_loss:
             min_loss = cur_loss
@@ -84,8 +90,10 @@ def main():
 
         if visualize:
             # visualize the flow
-            cur_flow_true = plot.visualize_flow(cur_label_true)
-            cur_flow_pred = plot.visualize_flow(cur_label_pred)
+            cur_flow_true, max_vel = plot.visualize_flow(cur_label_true)
+            print(f'Label max vel magnitude is {max_vel}')
+            cur_flow_pred, _ = plot.visualize_flow(cur_label_pred, max_vel=max_vel)
+            # print(f'Pred max vel magnitude is {max_vel}')
 
             # convert to Image
             cur_flow_true = Image.fromarray(cur_flow_true)
@@ -97,27 +105,33 @@ def main():
             y = np.linspace(0, final_size-1, final_size)
             y_pos, x_pos = np.meshgrid(x, y)
             skip = 8
-            # plt.figure()
-            # plt.imshow(cur_flow_true)
-            # plt.quiver(y_pos[::skip, ::skip],
-            #             x_pos[::skip, ::skip],
-            #             cur_label_true[::skip, ::skip, 0],
-            #             -cur_label_true[::skip, ::skip, 1])
-            # plt.axis('off')
-            # true_quiver_path = os.path.join(figs_dir, f'{k}_true.svg')
-            # plt.savefig(true_quiver_path, bbox_inches='tight', dpi=1200)
-            # print(f'ground truth quiver plot has been saved to {true_quiver_path}')
+            plt.figure()
+            plt.imshow(cur_flow_true)
+            Q = plt.quiver(y_pos[::skip, ::skip],
+                            x_pos[::skip, ::skip],
+                            cur_label_true[::skip, ::skip, 0]/max_vel,
+                            -cur_label_true[::skip, ::skip, 1]/max_vel,
+                            scale=4.0,
+                            scale_units='inches')
+            Q._init()
+            assert isinstance(Q.scale, float)
+            plt.axis('off')
+            true_quiver_path = os.path.join(figs_dir, f'{k}_true.svg')
+            plt.savefig(true_quiver_path, bbox_inches='tight', dpi=1200)
+            print(f'ground truth quiver plot has been saved to {true_quiver_path}')
 
             # prediction
             plt.figure()
             plt.imshow(cur_flow_pred)
             plt.quiver(y_pos[::skip, ::skip],
                         x_pos[::skip, ::skip],
-                        cur_label_pred[::skip, ::skip, 0],
-                        -cur_label_pred[::skip, ::skip, 1])
+                        cur_label_pred[::skip, ::skip, 0]/max_vel,
+                        -cur_label_pred[::skip, ::skip, 1]/max_vel,
+                        scale=Q.scale,
+                        scale_units='inches')
             plt.axis('off')
             # annotate error
-            plt.annotate(f'{loss}: ' + '{:.3f}'.format(cur_loss), (5, 10), color='black', fontsize='large')
+            plt.annotate(f'{loss}: ' + '{:.3f}'.format(cur_loss), (5, 10), color='white', fontsize='large')
             pred_quiver_path = os.path.join(figs_dir, f'HS_{k}_pred.svg')
             plt.savefig(pred_quiver_path, bbox_inches='tight', dpi=1200)
             print(f'prediction quiver plot has been saved to {pred_quiver_path}')
