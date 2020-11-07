@@ -62,16 +62,6 @@ def main():
         first_image = np.asarray(Image.open(img1_name_list[k])).reshape(img_height, img_width) * 1.0/255.0
         second_image = np.asarray(Image.open(img2_name_list[k])).reshape(img_height, img_width) * 1.0/255.0
         cur_label_true = fz.read_flow(gt_name_list[k]) / 256.0
-        # histogram of vector magnitude
-        # u = cur_label_true[:, :, 0] / 256.0
-        # v = cur_label_true[:, :, 1] / 256.0
-        # magnitude = np.sqrt(np.square(u) + np.square(v)).reshape(256*256, 1)
-        # binwidth = 0.1
-        # plt.hist(magnitude,
-        #         density=False,
-        #         bins=np.arange(min(magnitude), max(magnitude) + binwidth, binwidth))
-        # plt.show()
-        # return
 
         u, v = HornSchunck.HS(first_image, second_image, 1, 100)
         cur_label_pred = np.zeros((img_height, img_width, 2))
@@ -87,6 +77,7 @@ def main():
             min_loss_index = k
 
         all_losses.append(cur_loss)
+        print(f't = {k}, RMSE = {cur_loss}')
 
         if visualize:
             # visualize the flow
@@ -135,6 +126,18 @@ def main():
             pred_quiver_path = os.path.join(figs_dir, f'HS_{k}_pred.svg')
             plt.savefig(pred_quiver_path, bbox_inches='tight', dpi=1200)
             print(f'prediction quiver plot has been saved to {pred_quiver_path}')
+
+            # plot error difference
+            pred_error = np.sqrt(cur_label_pred[:,:,0]**2 + cur_label_pred[:,:,1]**2) \
+                                - np.sqrt(cur_label_true[:,:,0]**2 + cur_label_true[:,:,1]**2)
+            plt.figure()
+            plt.imshow(pred_error, cmap='RdBu', interpolation='nearest', vmin=-1,  vmax=1)
+            error_path = os.path.join(figs_dir, f'hs_{k}_error.svg')
+            plt.axis('off')
+            cbar = plt.colorbar()
+            cbar.set_label('Vector magnitude difference')
+            plt.savefig(error_path, bbox_inches='tight', dpi=1200)
+            print(f'error magnitude plot has been saved to {error_path}')
 
     avg_loss = np.mean(all_losses)
     print(f'\nHonr-Schunck on image [{start_index}:{end_index}] completed\n')

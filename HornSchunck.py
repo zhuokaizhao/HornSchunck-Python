@@ -31,11 +31,11 @@ def HS(im1, im2, alpha, Niter):
 	# Estimate derivatives
     [fx, fy, ft] = computeDerivatives(im1, im2)
 
-    fg,ax = plt.subplots(1,3,figsize=(18,5))
-    for f,a,t in zip((fx,fy,ft),ax,('$f_x$','$f_y$','$f_t$')):
-        h=a.imshow(f,cmap='bwr')
-        a.set_title(t)
-        fg.colorbar(h,ax=a)
+    # fg,ax = plt.subplots(1,3,figsize=(18,5))
+    # for f,a,t in zip((fx,fy,ft),ax,('$f_x$','$f_y$','$f_t$')):
+    #     h=a.imshow(f,cmap='bwr')
+    #     a.set_title(t)
+    #     fg.colorbar(h,ax=a)
 
 	# Averaging kernel
     kernel=np.array([[1/12, 1/6, 1/12],
