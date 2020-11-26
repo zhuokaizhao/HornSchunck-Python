@@ -4,14 +4,14 @@ from __future__ import print_function
 
 import os
 import torch
-import imageio
+# import imageio
 import argparse
 import numpy as np
 import flowiz as fz
 from PIL import Image
 from matplotlib import pyplot as plt
-from scipy.ndimage.filters import gaussian_filter
-from scipy.ndimage.filters import convolve as filter2
+# from scipy.ndimage.filters import gaussian_filter
+# from scipy.ndimage.filters import convolve as filter2
 
 import plot
 import load_data
@@ -45,8 +45,6 @@ def main():
         loss_module = torch.nn.MSELoss()
     elif loss == 'MAE':
         loss_module = torch.nn.L1Loss()
-    else:
-        raise Exception(f'Unrecognized loss function: {loss}')
 
     # start and end of index (both inclusive)
     start_index = 41
@@ -68,9 +66,37 @@ def main():
         cur_label_pred[:, :, 0] = u
         cur_label_pred[:, :, 1] = v
 
-        cur_loss = loss_module(torch.from_numpy(cur_label_pred), torch.from_numpy(cur_label_true))
-        if loss == 'RMSE':
-            cur_loss = torch.sqrt(cur_loss)
+        if loss == 'MSE' or loss == 'RMSE' or loss == 'AEE':
+            cur_loss = loss_module(torch.from_numpy(cur_label_pred), torch.from_numpy(cur_label_true))
+            if loss == 'RMSE':
+                cur_loss = torch.sqrt(cur_loss)
+            elif loss == 'AEE':
+                sum_endpoint_error = 0
+                for i in range(final_size):
+                    for j in range(final_size):
+                        cur_pred = cur_label_pred[i, j]
+                        cur_true = cur_label_true[i, j]
+                        cur_endpoint_error = np.linalg.norm(cur_pred-cur_true)
+                        sum_endpoint_error += cur_endpoint_error
+
+                # compute the average endpoint error
+                aee = sum_endpoint_error / (final_size*final_size)
+                # convert to per 100 pixels for comparison purpose
+                cur_loss = aee / final_size
+        # customized metric that converts into polar coordinates and compare
+        elif loss == 'polar':
+            # convert both truth and predictions to polar coordinate
+            cur_label_true_polar = plot.cart2pol(cur_label_true)
+            cur_label_pred_polar = plot.cart2pol(cur_label_pred)
+            # absolute magnitude difference and angle difference
+            r_diff_mean = np.abs(cur_label_true_polar[:, :, 0]-cur_label_pred_polar[:, :, 0]).mean()
+            theta_diff = np.abs(cur_label_true_polar[:, :, 1]-cur_label_pred_polar[:, :, 1])
+            # wrap around for angles larger than pi
+            theta_diff[theta_diff>2*np.pi] = 2*np.pi - theta_diff[theta_diff>2*np.pi]
+            # compute the mean of angle difference
+            theta_diff_mean = theta_diff.mean()
+            # take the sum as single scalar loss
+            cur_loss = r_diff_mean + theta_diff_mean
 
         if cur_loss < min_loss:
             min_loss = cur_loss
@@ -122,20 +148,24 @@ def main():
                         scale_units='inches')
             plt.axis('off')
             # annotate error
-            plt.annotate(f'{loss}: ' + '{:.3f}'.format(cur_loss), (5, 10), color='white', fontsize='large')
+            if loss == 'polar':
+                        plt.annotate(f'Magnitude MAE: ' + '{:.3f}'.format(r_diff_mean), (5, 10), color='white', fontsize='medium')
+                        plt.annotate(f'Angle MAE: ' + '{:.3f}'.format(theta_diff_mean), (5, 20), color='white', fontsize='medium')
+            else:
+                plt.annotate(f'{loss}: ' + '{:.3f}'.format(cur_loss), (5, 10), color='white', fontsize='large')
             pred_quiver_path = os.path.join(figs_dir, f'HS_{k}_pred.svg')
             plt.savefig(pred_quiver_path, bbox_inches='tight', dpi=1200)
             print(f'prediction quiver plot has been saved to {pred_quiver_path}')
 
             # plot error difference
-            pred_error = np.sqrt(cur_label_pred[:,:,0]**2 + cur_label_pred[:,:,1]**2) \
-                                - np.sqrt(cur_label_true[:,:,0]**2 + cur_label_true[:,:,1]**2)
+            pred_error = np.sqrt((cur_label_pred[:,:,0]-cur_label_true[:,:,0])**2 \
+                                        + (cur_label_pred[:,:,1]-cur_label_true[:,:,1])**2)
             plt.figure()
-            plt.imshow(pred_error, cmap='RdBu', interpolation='nearest', vmin=-1,  vmax=1)
+            plt.imshow(pred_error, cmap='PuBuGn', interpolation='nearest', vmin=0.0,  vmax=1.0)
             error_path = os.path.join(figs_dir, f'hs_{k}_error.svg')
             plt.axis('off')
             cbar = plt.colorbar()
-            cbar.set_label('Vector magnitude difference')
+            # cbar.set_label('Endpoint error')
             plt.savefig(error_path, bbox_inches='tight', dpi=1200)
             print(f'error magnitude plot has been saved to {error_path}')
 

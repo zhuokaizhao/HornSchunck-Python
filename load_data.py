@@ -4,8 +4,8 @@ import torch
 import numpy as np
 import flowiz as fz
 from PIL import Image
-from torch.utils.data import TensorDataset
-from sklearn.model_selection import ShuffleSplit
+# from torch.utils.data import TensorDataset
+# from sklearn.model_selection import ShuffleSplit
 
 
 def read_all(data_path):
