@@ -178,7 +178,7 @@ def main():
     print(f'Min loss is {min_loss} at index {min_loss_index}')
 
     # save the result to a .npy file
-    loss_path = os.path.join(figs_dir, f'HS_all_losses.npy')
+    loss_path = os.path.join(figs_dir, f'HS_{start_t}_{end_t-1}_all_losses.npy')
     np.save(loss_path, all_losses)
     print(f'result sheet has been saved at {loss_path}')
 
