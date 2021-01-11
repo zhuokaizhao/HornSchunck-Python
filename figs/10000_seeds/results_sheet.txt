@@ -1,3 +1,0 @@
-# RMSE of 1 image pairs
-   0.12225
-# Avg loss is 0.12225064648806003, Min loss is 0.12225064648806003 at index 41

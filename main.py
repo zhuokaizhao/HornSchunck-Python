@@ -27,6 +27,9 @@ def main():
     parser.add_argument('-o', '--output-dir', action='store', nargs=1, dest='output_dir')
     # loss function
     parser.add_argument('-l', '--loss', action='store', nargs=1, dest='loss')
+    # start and end t used when testing (both inclusive)
+    parser.add_argument('--start-t', action='store', nargs=1, dest='start_t')
+    parser.add_argument('--end-t', action='store', nargs=1, dest='end_t')
     args = parser.parse_args()
 
     data_dir = args.data_dir[0]
@@ -47,16 +50,16 @@ def main():
         loss_module = torch.nn.L1Loss()
 
     # start and end of index (both inclusive)
-    start_index = 41
-    end_index = 41
+    start_t = int(args.start_t[0])
+    end_t = int(args.end_t[0])
     final_size = img_height
-    visualize = True
+    visualize = False
 
     min_loss = 999
     min_loss_index = 0
     all_losses = []
 
-    for k in range(start_index, end_index+1):
+    for k in range(start_t, end_t+1):
         first_image = np.asarray(Image.open(img1_name_list[k])).reshape(img_height, img_width) * 1.0/255.0
         second_image = np.asarray(Image.open(img2_name_list[k])).reshape(img_height, img_width) * 1.0/255.0
         cur_label_true = fz.read_flow(gt_name_list[k]) / 256.0
@@ -170,18 +173,14 @@ def main():
             print(f'error magnitude plot has been saved to {error_path}')
 
     avg_loss = np.mean(all_losses)
-    print(f'\nHonr-Schunck on image [{start_index}:{end_index}] completed\n')
+    print(f'\nHonr-Schunck on image [{start_t}:{end_t}] completed\n')
     print(f'Avg loss is {avg_loss}')
     print(f'Min loss is {min_loss} at index {min_loss_index}')
 
-    # save the result to a .text file
-    text_path = os.path.join(figs_dir, 'results_sheet.txt')
-    np.savetxt(text_path,
-                all_losses,
-                fmt='%10.5f',
-                header=f'{loss} of {end_index-start_index+1} image pairs',
-                footer=f'Avg loss is {avg_loss}, Min loss is {min_loss} at index {min_loss_index}')
-    print(f'result sheet has been saved at {text_path}')
+    # save the result to a .npy file
+    loss_path = os.path.join(figs_dir, f'HS_all_losses.npy')
+    np.save(loss_path, all_losses)
+    print(f'result sheet has been saved at {loss_path}')
 
 
 if __name__ == "__main__":
